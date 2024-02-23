@@ -1,6 +1,6 @@
 #!/bin/python3
 
-
+# Importing required libraries
 import random
 import time
 import threading
@@ -11,10 +11,19 @@ import board
 import neopixel
 import serial
 import operator
-
+# Pause for 1 second at start, waiting for hardware
 time.sleep(1)
-colors=[(0, 0, 0),(84, 0, 0),(0, 0, 84),(0, 84, 0),(84, 84, 0),(0, 84, 84),(84, 0, 84),(84, 84, 84)]
-#           black0   red1       blue2     green3       yellow4      cyan5       megenta6       white7
+# Define colors
+colors = [
+    (0, 0, 0),    # black
+    (84, 0, 0),   # red
+    (0, 0, 84),   # blue
+    (0, 84, 0),   # green
+    (84, 84, 0),  # yellow
+    (0, 84, 84),  # cyan
+    (84, 0, 84),  # magenta
+    (84, 84, 84)  # white
+]
 # red=(64, 0, 0)
 # blue=(0, 0, 64)
 # green=(0, 64, 0)
@@ -27,22 +36,25 @@ colors=[(0, 0, 0),(84, 0, 0),(0, 0, 84),(0, 84, 0),(84, 84, 0),(0, 84, 84),(84, 
 class Client():
 #classe Cable
 
+    # Constructor method
     def __init__(self):
         random.seed()
-        self.connect() #fonction de connexion au daemon pyro
-        self.flag=[False,False,False] #initialisation des variables aux valeurs par défaut
-        self.temps=[0,0,0]
-        self.etat=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-        self.etatleds=['0','0','0','0','0','0','0','0','0','0']
-        self.etatbouton=[0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-        self.pixels = neopixel.NeoPixel(board.D18, 53, auto_write=False)
-        self.startpos=[(0,0),(1,0),(2,0),(3,-1),(3,-2),(3,-3),(2,-3),(1,-3),(0,-2),(0,-1)]
-        self.startposled=[0,49,46,26,False,False,41,29,False,False,38,34,37,13]
-        self.boutonpos=[(0,0),(1,0),(2,0),(0,-1),(1,-1),(2,-1),(3,-1),(0,-2),(1,-2),(2,-2),(3,-2),(1,-3),(2,-3),(3,-3)]
-        self.chemin=[[0],[0],[0],[0],[0],[0],[0]]
-        self.rgb=[False,False,False]
-        self.flagvalidation=False
+        self.connect()  # Connect to Pyro daemon
+        self.flag = [False, False, False]  # Flags initialization
+        self.temps = [0, 0, 0]  # Time initialization
+        self.etat = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # State initialization
+        self.etatleds = ['0', '0', '0', '0', '0', '0', '0', '0', '0', '0']  # LED state initialization
+        self.etatbouton = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # Button state initialization
+        self.pixels = neopixel.NeoPixel(board.D18, 53, auto_write=False)  # NeoPixel initialization
+        self.startpos = [(0, 0), (1, 0), (2, 0), (3, -1), (3, -2), (3, -3), (2, -3), (1, -3), (0, -2), (0, -1)]  # Start positions
+        self.startposled = [0, 49, 46, 26, False, False, 41, 29, False, False, 38, 34, 37, 13]  # LED start positions
+        self.boutonpos = [(0, 0), (1, 0), (2, 0), (0, -1), (1, -1), (2, -1), (3, -1), (0, -2), (1, -2), (2, -2), (3, -2), (1, -3), (2, -3), (3, -3)]  # Button positions
+        self.chemin = [[0], [0], [0], [0], [0], [0], [0]]  # Paths initialization
+        self.rgb = [False, False, False]  # RGB initialization
+        self.flagvalidation = False  # Flag validation initialization
 
+
+            # Define button and LED configurations
         self.boutonled=[\
         [False,[1,2],[24,25],False,False,[0,0,0]],\
         [False,[47,48],[3,4],[1,2],False,[0,0,0]],\
@@ -59,8 +71,12 @@ class Client():
         [False,[14,15],False,[35,36],[16,17],[0,0,0]],\
         [False,False,False,[14,15],[11,12],[0,0,0]]\
         ]
+
+         # Define winning positions
         self.winpos=[[84, 0, 84],[84, 0, 0],[84, 84, 0],[84, 0, 84],[84, 0, 0],[84, 84, 0],\
         [84, 84, 0],[0, 84, 84],[0, 84, 84],[0, 84, 84],[84, 0, 0],[0, 0, 0],[0, 84, 84],[0, 0, 84]]
+
+        # Attempt to connect to the serial port
         try:
             self.ser = serial.Serial('/dev/ttyACM0', 19200)
 
@@ -71,7 +87,7 @@ class Client():
         time.sleep(2)
 
 
-
+  # Method to connect to the Pyro daemon
     def connect(self):
         connected=False
         while connected==False:
@@ -106,6 +122,7 @@ class Client():
 
     def serialin(self):
 # reception etat des boutons via serial dans variable self.etatbouton [14] int 1-4
+# Method to receive button state via serial into variable self.etatbouton
         #if script.etat[1]==0:
             etatboutonbuff=self.ser.readline().decode('utf-8', "ignore")
 
@@ -132,6 +149,7 @@ class Client():
 
     def serialout(self):
 # envoie etat des led, script.etatled  [10] 0-1
+        # Method to send LED state via serial
         try:
             self.ser.write(b'z')
 
@@ -143,6 +161,7 @@ class Client():
 
     def cheminfinder(self,start,num):
 #fonction récursive pour cheminement, start= numero du bouton, num = couleur 0 rouge 1 vert 2 bleu 3
+    # Method to find paths recursively
             fini=False
             xybouton=self.boutonpos[start]
             if script.etatbouton[start]==1:
@@ -217,6 +236,7 @@ class Client():
                 if start==7:
                     self.rgb[2]=False
             #print (self.chemin[num])
+# Create an instance of the Client class
 script=Client()  #création de l'objet script de classe client
 script.refresh()
 
@@ -234,11 +254,13 @@ while True:
 
 
                 #remise a zéro couleurs strip et tableau
+                 # Reset colors and LED states
                 script.pixels.fill((0, 0, 0))
                 for i in range(14):
                     script.boutonled[i][5]=[0,0,0]
 
                 #couleur des leds de départs entrée
+                # Set LED colors for entry points and exit points
                 script.pixels[script.startposled[1]]=colors[1]
                 script.pixels[script.startposled[3]]=colors[2]
                 script.pixels[script.startposled[6]]=colors[3]
